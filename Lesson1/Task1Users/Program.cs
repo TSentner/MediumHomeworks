@@ -14,7 +14,7 @@ namespace Task1Users
             {
                 new User(0, "Сергей", 100),
                 new User(1, "Егор", 200),
-                new User(2, "Александр", 10)
+                new User(1, "Александр", 10)
             });
         }
     }
@@ -39,31 +39,36 @@ namespace Task1Users
 
         public SystemUsers(User[] users)
         {
-            Users = users;
+            if (CheckUniqueId(users))
+                Users = users;
+            else
+                throw new Exception("When creating SystemUsers, a non-unique user was found");
+            
         }
+
+        private bool CheckUniqueId(User[] users) 
+            => !users.GroupBy(user => user.Id)
+                     .Select(group => new { Count = group.Count()})
+                     .Any(group => group.Count > 1);
 
         public User GetById(int id)
         {
-            foreach (var item in Users)
-                if (item.Id == id)
-                    return item;
-
-            return null;
+            var query = Filter(user => user.Id == id);
+            return query.Length > 0 ? query[0] : null;
         }
 
         public User FirstByName(string name)
         {
-            foreach (var item in Users)
-                if (item.Name == name)
-                    return item;
-
-            return null;
+            var query = Filter(user => user.Name == name);
+            return query.Length > 0 ? query[0] : null;
         }
 
-        public User[] SalaryGreaterThan(float comparable) => Users.Where(user => user.Salary > comparable).ToArray();
-        public User[] SalaryLessThan(float comparable) => Users.Where(user => user.Salary < comparable).ToArray();
-        public User[] SalaryBetween(float min, float max) => Users.Where(user => min <= user.Salary && user.Salary <= max).ToArray();
+        public User[] SalaryGreaterThan(float comparable) => Filter(user => user.Salary > comparable);
+        public User[] SalaryLessThan(float comparable) => Filter(user => user.Salary < comparable);
+        public User[] SalaryBetween(float min, float max) => Filter(user => min <= user.Salary && user.Salary <= max);
 
+
+        private User[] Filter(Predicate<User> query) => Users.Where(user => query(user)).ToArray();
     }
        
 }
