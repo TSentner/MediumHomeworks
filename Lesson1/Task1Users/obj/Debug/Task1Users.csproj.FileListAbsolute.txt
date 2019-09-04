@@ -1,0 +1,7 @@
+G:\Projects\C#\MediumHomeworks\Lesson1\Task1Users\bin\Debug\Task1Users.exe.config
+G:\Projects\C#\MediumHomeworks\Lesson1\Task1Users\bin\Debug\Task1Users.exe
+G:\Projects\C#\MediumHomeworks\Lesson1\Task1Users\bin\Debug\Task1Users.pdb
+G:\Projects\C#\MediumHomeworks\Lesson1\Task1Users\obj\Debug\Task1Users.csprojAssemblyReference.cache
+G:\Projects\C#\MediumHomeworks\Lesson1\Task1Users\obj\Debug\Task1Users.csproj.CoreCompileInputs.cache
+G:\Projects\C#\MediumHomeworks\Lesson1\Task1Users\obj\Debug\Task1Users.exe
+G:\Projects\C#\MediumHomeworks\Lesson1\Task1Users\obj\Debug\Task1Users.pdb
