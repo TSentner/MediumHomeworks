@@ -10,7 +10,15 @@ namespace Lesson2
     {
         static void Main(string[] args)
         {
+            Vector position = new Vector(10, 0);
+            Button Button1 = new Button(new Rectangle(position, 10, 1, ConsoleColor.Red));
+            position = new Vector(5, 2);
+            Button Button2 = new Button(new Rectangle(position, 10, 1, ConsoleColor.Red));
+            Button1.Draw();
+            Button2.Draw();
 
+
+            Console.ReadLine();
         }
     }
 
@@ -21,52 +29,116 @@ namespace Lesson2
 
     public abstract class GUIElement
     {
-        protected Rectangle _bounds;
+        protected Rectangle _bounds { get; private set; }
+        protected string[] _view { get; private set; }
 
         public GUIElement(Rectangle border)
         {
             _bounds = border;
+            _view = new string[0];
         }
 
-        
+        protected void SetView(string[] view) => _view = view ?? new string[0];
 
         public abstract void Draw();
+
         public abstract void Click();
     }
 
     public class Button : GUIElement
     {
+
+        public Button(Rectangle border) : base(border)
+        {
+            SetView(Painter.SolidRectangleView(border.Width, border.Height));
+        }
+
+        public override void Click()
+        {
+            throw new NotImplementedException();
+        }
+
         public override void Draw()
         {
-            _bounds.Draw();
+            Painter.Paint(_view, _bounds.PositionLeftUp, ConsoleColor.Red);
         }
     }
 
     public class Edit : GUIElement
     {
+        public Edit(Rectangle border) : base(border)
+        {
+        }
 
+        public override void Click()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void Draw()
+        {
+            throw new NotImplementedException();
+        }
     }
 
     public class Label : GUIElement
     {
+        public Label(Rectangle border) : base(border)
+        {
+        }
 
+        public override void Click()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void Draw()
+        {
+            throw new NotImplementedException();
+        }
     }
 
     public class CheckboxGroup : GUIElement
     {
+        public CheckboxGroup(Rectangle border) : base(border)
+        {
+        }
 
+        public override void Click()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void Draw()
+        {
+            throw new NotImplementedException();
+        }
     }
 
     public class Checkbox : GUIElement
     {
+        public Checkbox(Rectangle border) : base(border)
+        {
+        }
 
+        public override void Click()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void Draw()
+        {
+            throw new NotImplementedException();
+        }
     }
 
-    public class Rectangle
+    public struct Rectangle
     {
         public Vector PositionLeftUp { get; private set; }
         public Vector PositionRightDown { get; private set; }
         public ConsoleColor BorderColor { get; private set; }
+        public int Width => PositionRightDown.X - PositionLeftUp.X;
+        public int Height => PositionRightDown.Y - PositionLeftUp.Y;
 
         public Rectangle(Vector positionLeftUp, int width, int height, ConsoleColor borderColor)
         {
@@ -79,44 +151,9 @@ namespace Lesson2
             PositionRightDown = positionLeftUp + new Vector(width, height);
             BorderColor = borderColor;
         }
-
-        public void Draw()
-        {
-            string border = "╔";
-            string space = "";
-            string temp = "";
-            for (int i = 0; i < Width; i++)
-            {
-                space += " ";
-                border += "═";
-            }
-
-            for (int j = 0; j < PositionLeftUp.X; j++)
-                temp += " ";
-
-            border += "╗" + "\n";
-
-            for (int i = 0; i < Height; i++)
-                border += temp + "║" + space + "║" + "\n";
-
-            border += temp + "╚";
-            for (int i = 0; i < Width; i++)
-                border += "═";
-
-            border += "╝" + "\n";
-
-            Console.ForegroundColor = BorderColor;
-            Console.CursorTop = PositionLeftUp.Y;
-            Console.CursorLeft = PositionLeftUp.X;
-            Console.Write(border);
-            Console.ResetColor();
-        }
-
-        public int Width => PositionRightDown.X - PositionLeftUp.X;
-        public int Height => PositionRightDown.Y - PositionLeftUp.Y;
-
     }
-    public class Vector
+
+    public struct Vector
     {
         public int X { get; private set; }
         public int Y { get; private set; }
@@ -131,14 +168,74 @@ namespace Lesson2
         {
             if (obj == null)
                 return false;
-            Vector comparable = obj as Vector;
-            if (comparable == null)
-                return false;
 
-            return X == comparable.X && Y == comparable.Y;
+            if (obj is Vector comparable)
+                return X == comparable.X && Y == comparable.Y;
+
+            return false;
         }
-        public static Vector operator +(Vector left, Vector right) => new Vector(left.X + right.X, left.Y + right.Y);
-        public static Vector operator -(Vector left, Vector right) => new Vector(left.X - right.X, left.Y - right.Y);
+        public static Vector operator +(Vector left, Vector right) => 
+            new Vector(left.X + right.X, left.Y + right.Y);
+        public static Vector operator -(Vector left, Vector right) => 
+            new Vector(left.X - right.X, left.Y - right.Y);
+    }
 
+    public static class Painter
+    {
+        public static void Paint(string[] lines, Vector position, ConsoleColor color)
+        {
+            var oldColor = Console.ForegroundColor;
+            Console.ForegroundColor = color;
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                Console.CursorTop = position.Y + i;
+                Console.CursorLeft = position.X;
+                Console.Write(lines[i]);
+            }
+
+            
+            Console.ForegroundColor = oldColor;
+        }
+
+        public static string[] SolidRectangleView(int width, int height) =>
+            BuildRectangleView(width, height, "╔", "═", "╗", "║", "╝", "═", "╚", "║");
+
+        public static string[] BracketsRectangleView(int width, int height) =>
+            BuildRectangleView(width, height, "╔", " ", "╗", "║", "╝", " ", "╚", "║");
+
+
+        public static string[] BuildRectangleView(int width, int height, 
+            string leftUp, string up, string upRight, string right, 
+            string rightDown, string down, string downLeft, string left)
+        {
+            var lines = new List<string>();
+
+            string upLine = leftUp;
+            string space = "";
+            for (int i = 0; i < width; i++)
+            {
+                space += " ";
+                upLine += up;
+            }
+
+            upLine += upRight;
+
+            lines.Add(upLine);
+
+            for (int i = 0; i < height; i++)
+                lines.Add(left + space + right);
+
+            string downLine = string.Empty;
+            downLine += downLeft;
+            for (int i = 0; i < width; i++)
+                downLine += down;
+
+            downLine += rightDown + "\n";
+            lines.Add(downLine);
+
+
+            return lines.ToArray();
+        }
     }
 }
