@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+
 
 namespace Lesson2
 {
@@ -11,57 +15,216 @@ namespace Lesson2
         static void Main(string[] args)
         {
             var position = new Vector(5, 2);
-            Button Button2 = new Button(new Rectangle(position, 11, 3, ConsoleColor.Red), "Knock");
+            Button button1 = new Button(new Rectangle(position, 12, 3, ConsoleColor.Red), "Click Me");
+            button1.Draw();
 
-            Button2.Draw();
+            position = new Vector(5, 7);
+            Edit edit1 = new Edit(new Rectangle(position, 100, 3, ConsoleColor.Red), "Tramp pam pamp");
+            edit1.Draw();
 
+            position = new Vector(7, 7);
+            Label label1 = new Label(new Rectangle(position, 12, 1, ConsoleColor.Blue), "Edit Field");
+            label1.Draw();
 
-            Console.ReadLine();
+            position = new Vector(5, 12);
+            var checkboxes = new[] {
+                new Checkbox(new Rectangle(position, 15, 1, ConsoleColor.Green), "Check1"),
+                new Checkbox(new Rectangle(position, 15, 1, ConsoleColor.Green), "Check2"),
+                new Checkbox(new Rectangle(position, 15, 1, ConsoleColor.Green), "Check3")
+            };
+
+            CheckboxGroup checkboxGroup = new CheckboxGroup(new Rectangle(position, 20, 9, ConsoleColor.Red), "", checkboxes);
+            checkboxGroup.Draw();
+            checkboxGroup.Click();
+
+            Mouse mouse = new Mouse();
+            ConsoleKey key;
+            while((key = Console.ReadKey(true).Key) != ConsoleKey.Escape)
+            {
+                mouse.GetInput(key);
+            }
+
         }
     }
-    
-    public abstract class GUIElement
+
+    interface IClickable
     {
-        protected int _textOffset { get; private set; }
+        void Click();
+        void AddClickListener(Action action);
+    }
 
-        protected string _text { get; private set; }
+    public class Mouse : IClickable
+    {
+        private Action _onClick;
+        private Vector _position;
+        private byte KeyLayers;
+        private char buferChar;
+
+        public Mouse()
+        {
+            KeyLayers = (byte)ConsoleKey.Enter & (byte)ConsoleKey.Spacebar & (byte)ConsoleKey.Select;
+            _position = new Vector(0, 0);
+        }
+
+        public void GetInput(ConsoleKey consoleKey)
+        {
+            if (KeyLayers == (KeyLayers | (1 << ((byte)consoleKey))))
+            {
+                Click();
+            }
+            else
+            {
+                switch (consoleKey)
+                {
+                    case ConsoleKey.LeftArrow:
+                        Move(Vector.Left);
+                        break;
+                    case ConsoleKey.UpArrow:
+                        Move(Vector.Down);
+                        break;
+                    case ConsoleKey.RightArrow:
+                        Move(Vector.Right);
+                        break;
+                    case ConsoleKey.DownArrow:
+                        Move(Vector.Up);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            
+        }
+        
+        public void Move(Vector offset)
+        {
+            var left = Console.CursorLeft;
+            var top = Console.CursorTop;
+            _position = new Vector(left, top);
+            _position = Painter.CheckLimits(_position + offset);
+            Console.SetCursorPosition(_position.X, _position.Y);
+        }
+
+        public void Click()
+        {
+            _onClick?.Invoke();
+        }
+
+        public virtual void AddClickListener(Action action)
+        {
+            _onClick += action;
+        }
+    }
+
+    public abstract class GUIElement : IClickable
+    {
+        public enum VerticalAlign
+        {
+            Left,
+            Center,
+            Right
+        }
+        public enum HorizontalAlign
+        {
+            Top,
+            Center,
+            Down
+        }
+        protected Action _onClick { get; private set; }
+
         protected Rectangle _bounds { get; private set; }
-        protected string[] _view { get; private set; }
+        protected string _text { get; private set; }
+        protected string[] _backgroundView { get; private set; }
 
-        public GUIElement(Rectangle border, string text)
+        protected int _textVerticalOffset { get; private set; }
+        protected int _textHorizontalOffset { get; private set; }
+
+        protected int MaxTextLength => Math.Max(0, _bounds.Width - _textVerticalOffset * 2);
+
+
+
+        public GUIElement(Rectangle border, string text, Action action = null)
         {
             _bounds = border;
 
-            _textOffset = 0;
+            _textVerticalOffset = 1;
+            _textHorizontalOffset = 2;
 
             SetText(text);
             
-            _view = new string[0];
+            _backgroundView = new string[0];
+
+            _onClick = action;
         }
 
-        protected virtual void SetTextOffset(int offset) => _textOffset = offset;
+        protected void SetTextVerticalOffset(int offset) => _textVerticalOffset = Math.Max(0, offset);
+        protected void SetTextHorizontalOffset(int offset) => _textHorizontalOffset = Math.Max(0, offset);
 
-        protected void SetView(string[] view) => _view = view ?? new string[0];
+        protected void SetView(string[] view) => _backgroundView = view ?? new string[0];
 
         protected void SetText(string text)
         {
             _text = text ?? string.Empty;
 
-            int cut = Math.Max(0, _bounds.Width - _textOffset);
-            if (_text.Length > cut)
-                _text = _text.Substring(0, cut);
+            if (_text.Length > MaxTextLength)
+                _text = _text.Substring(0, MaxTextLength);
         }
 
-        protected Vector TextPosition()
+        protected Vector TextPosition(VerticalAlign verticalAlign = VerticalAlign.Center, HorizontalAlign horizontalAlign = HorizontalAlign.Center)
         {
-            int leftOffset = (_bounds.Width - _text.Length + 1) / 2;
-            int topOffset = (_bounds.Height - 1) / 2;
-            return _bounds.PositionLeftUp + new Vector(leftOffset, topOffset);
+            int leftOffset;
+            int topOffset;
+
+            switch (verticalAlign)
+            {
+                case VerticalAlign.Left:
+                    leftOffset = _textVerticalOffset;
+                    break;
+                case VerticalAlign.Center:
+                    leftOffset = (_bounds.Width - _text.Length + 1) / 2;
+                    break;
+                case VerticalAlign.Right:
+                    leftOffset = _bounds.Width - _text.Length - _textVerticalOffset;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException("verticalAlign");
+            }
+            switch (horizontalAlign)
+            {
+                case HorizontalAlign.Top:
+                    topOffset = _textHorizontalOffset;
+                    break;
+                case HorizontalAlign.Center:
+                    topOffset = (_bounds.Height - 1) / 2;
+                    break;
+                case HorizontalAlign.Down:
+                    topOffset = _bounds.Height - _textHorizontalOffset;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException("horizontalAlign");
+            }
+
+
+            return Painter.CheckLimits(_bounds.PositionLeftUp + new Vector(leftOffset, topOffset));
+        }
+
+        public Rectangle GetBounds() => _bounds;
+        
+        public void SetLocation(Vector position)
+        {
+            _bounds = new Rectangle(position, _bounds.Width, _bounds.Height, _bounds.BorderColor);
         }
 
         public abstract void Draw();
 
-        public abstract void Click();
+        public virtual void Click()
+        {
+            _onClick?.Invoke();
+        }
+
+        public virtual void AddClickListener(Action action)
+        {
+            _onClick += action;
+        }
     }
 
     public class Button : GUIElement
@@ -69,24 +232,14 @@ namespace Lesson2
         public Button(Rectangle border, string text) : base(border, text)
         {
             SetView(Painter.BracketsRectangleView(border.Width, border.Height));
-
-            SetTextOffset(2);
-            Console.WriteLine(_text);
             SetText(text);
-            Console.WriteLine(_text);
-
         }
 
-        public override void Click()
-        {
-            throw new NotImplementedException();
-        }
-
+        
         public override void Draw()
         {
-            Painter.Paint(_view, _bounds.PositionLeftUp, ConsoleColor.Red);
-            
-            Painter.Paint(_text, TextPosition(), ConsoleColor.Red);
+            Painter.Paint(_backgroundView, _bounds.PositionLeftUp, _bounds.BorderColor);
+            Painter.Paint(_text, TextPosition(), _bounds.BorderColor);
         }
     }
 
@@ -95,16 +248,27 @@ namespace Lesson2
         public Edit(Rectangle border, string text) : base(border, text)
         {
             SetView(Painter.SolidRectangleView(border.Width, border.Height));
+            SetTextVerticalOffset(3);
         }
 
         public override void Click()
         {
-            throw new NotImplementedException();
+            base.Click();
+
+            SetText(new string(' ', MaxTextLength));
+            Draw();
+
+            var cursor = TextPosition(VerticalAlign.Left);
+            Console.CursorTop = cursor.Y;
+            Console.CursorLeft = cursor.X;
+            SetText(Console.ReadLine());
+            Draw();
         }
 
         public override void Draw()
         {
-            throw new NotImplementedException();
+            Painter.Paint(_backgroundView, _bounds.PositionLeftUp, _bounds.BorderColor);
+            Painter.Paint(_text, TextPosition(VerticalAlign.Left), _bounds.BorderColor);
         }
     }
 
@@ -112,50 +276,107 @@ namespace Lesson2
     {
         public Label(Rectangle border, string text) : base(border, text)
         {
-        }
-
-        public override void Click()
-        {
-            throw new NotImplementedException();
+            SetView(Painter.ClearRectangleView(border.Width, border.Height));
         }
 
         public override void Draw()
         {
-            throw new NotImplementedException();
+            Painter.Paint(_backgroundView, _bounds.PositionLeftUp, _bounds.BorderColor);
+            Painter.Paint(_text, TextPosition(VerticalAlign.Left), _bounds.BorderColor);
         }
     }
 
     public class CheckboxGroup : GUIElement
     {
-        public CheckboxGroup(Rectangle border, string text) : base(border, text)
+        private Checkbox[] _checkboxes;
+
+        public CheckboxGroup(Rectangle border, string text, Checkbox[] checkboxes) : base(border, text)
         {
+            SetView(Painter.SolidRectangleView(border.Width, border.Height));
+            SetTextVerticalOffset(3);
+            for (int i = 0; i < checkboxes.Length; i++)
+                if (checkboxes[i] == null)
+                    throw new ArgumentNullException("checkboxes " + i);
+
+            _checkboxes = checkboxes;
+        }
+
+        private int FindClicked()
+        {
+            var cursorPosition = new Vector(Console.CursorLeft, Console.CursorTop);
+            for (int i = 0; i < _checkboxes.Length; i++)
+                if (_checkboxes[i].GetBounds().IsPointInside(cursorPosition))
+                    return i;
+
+            return -1;
         }
 
         public override void Click()
         {
-            throw new NotImplementedException();
+            base.Click();
+
+            var iClicked = FindClicked();
+
+            if (iClicked == -1)
+                return;
+
+            for (int i = 0; i < _checkboxes.Length; i++)
+            {
+                if (_checkboxes[i].Checked && i != iClicked)
+                {
+                    _checkboxes[i].Uncheck();
+                    _checkboxes[i].Draw();
+                }
+            }
+
+            _checkboxes[iClicked].Click();
         }
 
         public override void Draw()
         {
-            throw new NotImplementedException();
+            Painter.Paint(_backgroundView, _bounds.PositionLeftUp, _bounds.BorderColor);
+
+            var heights = _checkboxes.Sum(item => item.GetBounds().Height);
+            var offset = Math.Max(1, Math.Max(0, _bounds.Height - heights) / Math.Max(2, _checkboxes.Length));
+            var yPosition = _bounds.PositionLeftUp.Y + offset;
+            
+            foreach (var checkbox in _checkboxes)
+            {
+                checkbox.SetLocation(new Vector(_bounds.PositionLeftUp.X + _textVerticalOffset, yPosition));
+                yPosition += offset;
+                checkbox.Draw();
+            }
+            
         }
     }
 
     public class Checkbox : GUIElement
     {
+        public bool Checked { get; private set; }
+
         public Checkbox(Rectangle border, string text) : base(border, text)
         {
+            SetView(Painter.ClearRectangleView(border.Width, border.Height));
         }
+        
+        public void Uncheck() => Checked = false;
 
         public override void Click()
         {
-            throw new NotImplementedException();
+            base.Click();
+
+            Checked = true;
+            Draw();
         }
 
         public override void Draw()
         {
-            throw new NotImplementedException();
+            var view = "(" + (Checked ? "*" : " ") + ") " + _text;
+            if (view.Length > MaxTextLength)
+                view = view.Substring(0, MaxTextLength);
+
+            Painter.Paint(_backgroundView, _bounds.PositionLeftUp, _bounds.BorderColor);
+            Painter.Paint(view, TextPosition(VerticalAlign.Left), _bounds.BorderColor);
         }
     }
 
@@ -179,6 +400,17 @@ namespace Lesson2
             PositionRightDown = Painter.CheckLimits(PositionRightDown);
             BorderColor = borderColor;
         }
+
+        public bool IsPointInside(Vector point)
+        {
+            if (point.X < PositionLeftUp.X || point.Y < PositionLeftUp.Y 
+                || point.X > PositionRightDown.X || point.Y > PositionRightDown.Y)
+            {
+                return false;
+            }
+
+            return true;
+        }
     }
 
     public struct Vector
@@ -193,6 +425,9 @@ namespace Lesson2
         }
 
         public static Vector Up => new Vector(0, 1);
+        public static Vector Down => new Vector(0, -1);
+        public static Vector Left => new Vector(-1, 0);
+        public static Vector Right => new Vector(1, 0);
 
         public override bool Equals(object obj)
         {
@@ -240,6 +475,8 @@ namespace Lesson2
             Console.Write(text);
         }
 
+        public static string[] ClearRectangleView(int width, int height) =>
+            BuildRectangleView(width, height, " ", " ", " ", " ", " ", " ", " ", " ");
 
         public static string[] SolidRectangleView(int width, int height) =>
             BuildRectangleView(width, height, "╔", "═", "╗", "║", "╝", "═", "╚", "║");
@@ -275,18 +512,19 @@ namespace Lesson2
             for (int i = 0; i < height - 2; i++)
                 lines.Add(left + space + right);
 
+            if (height > 1)
+            {
+                string downLine = string.Empty;
+                downLine += downLeft;
 
-            string downLine = string.Empty;
-            downLine += downLeft;
+                for (int i = 0; i < width - 2; i++)
+                    downLine += down;
 
-            for (int i = 0; i < width - 2; i++)
-                downLine += down;
+                if (width > 1)
+                    downLine += rightDown;
 
-            if (width > 1)
-                downLine += rightDown;
-
-            lines.Add(downLine);
-
+                lines.Add(downLine);
+            }
 
             return lines.ToArray();
         }
@@ -304,4 +542,7 @@ namespace Lesson2
     {
         public static int Clamp(int value, int min, int max) => (value < min) ? min : (value > max) ? max : value;
     }
+
+
+    
 }
