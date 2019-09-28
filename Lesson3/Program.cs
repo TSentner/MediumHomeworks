@@ -32,26 +32,7 @@ namespace Lesson3
         }
     }
 
-    interface ISortable<T>
-    {
-        IEnumerable<T> Sort(IEnumerable<T> enumerable);
-    }
-
-    public class SortingGoods<T> : ISortable<Good>
-    {
-        public Func<Good, T> SortFunc { get; private set; }
-
-        public SortingGoods(Func<Good, T> sort)
-        {
-            SortFunc = sort;
-        }
-
-        public IEnumerable<Good> Sort(IEnumerable<Good> enumerable)
-        {
-            return enumerable.OrderBy(SortFunc);
-        }
-    }
-
+    
     public class SortingGoods
     {
         public enum By
@@ -61,13 +42,13 @@ namespace Lesson3
             Level
         }
 
-        private Dictionary<By, ISortable<Good>> _sorts = new Dictionary<By, ISortable<Good>> {
-            { By.Name, new SortingGoods<string>(good => good.Name) },
-            { By.Cost, new SortingGoods<float>(good => good.Cost) },
-            { By.Level, new SortingGoods<int>(good => good.Level) },
+        private Dictionary<By, Func<Good, IComparable>> _sorts = new Dictionary<By, Func<Good, IComparable>> {
+            { By.Name, good => good.Name },
+            { By.Cost, good => good.Cost },
+            { By.Level, good => good.Level },
         };
 
-        public IEnumerable<Good> Sort(IEnumerable<Good> goods, By sortBy) => _sorts[sortBy].Sort(goods);
+        public IEnumerable<Good> Sort(IEnumerable<Good> goods, By sortBy) => goods.OrderBy(_sorts[sortBy]);
     }
        
 
